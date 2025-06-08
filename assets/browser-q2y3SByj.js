@@ -14999,7 +14999,7 @@ const mockCartItems = [
   },
   {
     id: 2,
-    quantity: 1,
+    quantity: 5,
     product: {
       id: 25,
       name: "모던 우드 체어",
@@ -15042,33 +15042,74 @@ const mockCartItems = [
     }
   }
 ];
-let fetchedData = {
+const mockCoupons = [
+  {
+    id: 1,
+    code: "FIXED5000",
+    description: "5,000원 할인 쿠폰",
+    expirationDate: "2025-11-30",
+    discount: 5e3,
+    minimumAmount: 1e5,
+    discountType: "fixed"
+  },
+  {
+    id: 2,
+    code: "BOGO",
+    description: "2개 구매 시 1개 무료 쿠폰",
+    expirationDate: "2025-06-30",
+    buyQuantity: 2,
+    getQuantity: 1,
+    discountType: "buyXgetY"
+  },
+  {
+    id: 3,
+    code: "FREESHIPPING",
+    description: "5만원 이상 구매 시 무료 배송 쿠폰",
+    expirationDate: "2025-08-31",
+    minimumAmount: 5e4,
+    discountType: "freeShipping"
+  },
+  {
+    id: 4,
+    code: "MIRACLESALE",
+    description: "미라클모닝 30% 할인 쿠폰",
+    expirationDate: "2025-07-31",
+    discount: 30,
+    availableTime: {
+      start: "04:00:00",
+      end: "07:00:00"
+    },
+    discountType: "percentage"
+  }
+];
+let fetchedCartData = {
   content: [...mockCartItems]
 };
 const handlers = [
   http.get("*/cart-items", () => {
-    return HttpResponse.json(fetchedData);
+    return HttpResponse.json(fetchedCartData);
   }),
   http.delete(`*/cart-items/:id`, async ({ params }) => {
     const id = Number(params.id);
-    fetchedData.content = fetchedData.content.filter((cart) => cart.id !== id);
+    fetchedCartData.content = fetchedCartData.content.filter((cart) => cart.id !== id);
     return HttpResponse.json({ ok: true }, { status: 201 });
   }),
   http.patch(`*/cart-items/:id`, async ({ params, request }) => {
     const cartId = Number(params.id);
     const body = await request.json();
     const { quantity } = body;
-    const cartIndex = fetchedData.content.findIndex(
-      (item) => item.id === cartId
-    );
+    const cartIndex = fetchedCartData.content.findIndex((item) => item.id === cartId);
     if (!cartId || quantity < 1)
       return HttpResponse.error();
-    const cartItem = fetchedData.content[cartIndex];
-    fetchedData.content[cartIndex] = {
+    const cartItem = fetchedCartData.content[cartIndex];
+    fetchedCartData.content[cartIndex] = {
       ...cartItem,
       quantity
     };
     return HttpResponse.json({ ok: true }, { status: 200 });
+  }),
+  http.get(`*/coupons`, () => {
+    return HttpResponse.json(mockCoupons);
   })
 ];
 function toResponseInit(response) {
