@@ -15430,12 +15430,14 @@ const getMaxDiscountCoupons = (cartItems, coupons, deliveryPrice, couponAmount) 
   DFS(0, []);
   return maxDiscountCoupons;
 };
-const checkIsAvailableCoupon = (coupon, checkedCartItems) => {
+const checkIsAvailableCoupon = (coupon, checkedCartItems, deliveryPrice) => {
   if (checkIsNotOverMin(coupon, checkedCartItems))
     return false;
   if (checkIsStaleCouponNow(coupon))
     return false;
   if (checkIsCannotBuyXGetY(coupon, checkedCartItems))
+    return false;
+  if (checkIsCannotFreeShipping(coupon, deliveryPrice))
     return false;
   return true;
 };
@@ -15486,8 +15488,17 @@ const checkIsCannotBuyXGetY = (coupon, checkedCartItems) => {
     return true;
   return false;
 };
-const getAvailableCoupons = (coupons, checkedCartItems) => {
-  return coupons.filter((coupon) => checkIsAvailableCoupon(coupon, checkedCartItems));
+const checkIsCannotFreeShipping = (coupon, deliveryPrice) => {
+  if (coupon.discountType !== "freeShipping")
+    return false;
+  if (deliveryPrice <= 0)
+    return true;
+  return false;
+};
+const getAvailableCoupons = (coupons, checkedCartItems, deliveryPrice) => {
+  return coupons.filter(
+    (coupon) => checkIsAvailableCoupon(coupon, checkedCartItems, deliveryPrice)
+  );
 };
 const DELIVERY_PRICE_THRESHOLD = 1e5;
 const DELIVERY_PRICE = 3e3;
@@ -15694,7 +15705,7 @@ const OrderPageMessage = ({ cartLength, totalQuantity }) => {
 };
 const S$7 = {
   Container: newStyled.div`
-    margin: 0 0 36px;
+    margin: 0 0 10px;
   `,
   Message: newStyled.p`
     font-size: 12px;
@@ -15829,11 +15840,15 @@ const useCouponContext = () => {
   }
   return context;
 };
-const useCouponActions = (id2) => {
+const useCouponActions = (id2, deliveryPrice) => {
   const { cartItems, checkedCartIds } = useCartItemsContext();
   const { coupons, checkedCouponIds, addCheckedCouponIds, removeCheckedCouponIds } = useCouponContext();
   const { showToast } = useToastContext();
-  const isEnable = getAvailableCoupons(coupons, getCheckedItems(cartItems, checkedCartIds)).map((item) => item.id).includes(id2);
+  const isEnable = getAvailableCoupons(
+    coupons,
+    getCheckedItems(cartItems, checkedCartIds),
+    deliveryPrice
+  ).map((item) => item.id).includes(id2);
   const isChecked = checkedCouponIds.includes(id2);
   const handleCheckBoxClick = () => {
     if (isChecked) {
@@ -15852,9 +15867,9 @@ const useCouponActions = (id2) => {
     handleCheckBoxClick
   };
 };
-const CouponCard = ({ coupon }) => {
+const CouponCard = ({ coupon, deliveryPrice }) => {
   const [year, month, day] = coupon.expirationDate.split("-").map(Number);
-  const { isChecked, isEnable, handleCheckBoxClick } = useCouponActions(coupon.id);
+  const { isChecked, isEnable, handleCheckBoxClick } = useCouponActions(coupon.id, deliveryPrice);
   const { showToast } = useToastContext();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: isEnable ? /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.Container, { "data-testid": "coupon-card", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.TitleContainer, { children: [
@@ -15935,10 +15950,12 @@ const S$4 = {
   `,
   DisabledContainer: newStyled.div`
     height: 90px;
-    opacity: 0.25;
+    & > * {
+      opacity: 0.25;
+    }
   `
 };
-const CouponModal = ({ isOpen, handleClose }) => {
+const CouponModal = ({ isOpen, handleClose, deliveryPrice, discountPrice }) => {
   const { coupons } = useCouponContext();
   return isOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs(S$3.container, { "data-testid": "modal", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.overlay, { "data-testid": "modal-overlay", onClick: handleClose }),
@@ -15953,8 +15970,12 @@ const CouponModal = ({ isOpen, handleClose }) => {
           "개까지 사용할 수 있습니다."
         ] })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.CouponContainer, { children: coupons.map((coupon) => /* @__PURE__ */ jsxRuntimeExports.jsx(CouponCard, { coupon }, coupon.id)) }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.closeButton, { onClick: handleClose, children: "닫기" })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.CouponContainer, { children: coupons.map((coupon) => /* @__PURE__ */ jsxRuntimeExports.jsx(CouponCard, { coupon, deliveryPrice }, coupon.id)) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsxs(S$3.closeButton, { onClick: handleClose, children: [
+        "총 ",
+        discountPrice.toLocaleString(),
+        "원 할인 쿠폰 사용하기"
+      ] })
     ] })
   ] });
 };
@@ -16005,9 +16026,9 @@ const S$3 = {
   closeButton: newStyled.button`
     width: 100%;
     border-radius: 5px;
+    padding: 10px;
     background: #333;
     color: white;
-    padding: 8px;
     font-weight: bold;
     border: none;
     transition: 0.3s background;
@@ -16031,7 +16052,7 @@ const useOrderPage = () => {
   );
   reactExports.useEffect(() => {
     initCheckedCouponIds(
-      getAvailableCoupons(coupons, checkedCartItems),
+      getAvailableCoupons(coupons, checkedCartItems, deliveryPrice),
       checkedCartItems,
       deliveryPrice,
       MAX_COUPON_AMOUNT
@@ -16052,7 +16073,15 @@ const OrderPage = () => {
   const [isModalOpen, setIsModalOpen] = reactExports.useState(false);
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$2.content, { "data-testid": "orderPage", children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(CouponModal, { isOpen: isModalOpen, handleClose: () => setIsModalOpen(false) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(
+        CouponModal,
+        {
+          isOpen: isModalOpen,
+          handleClose: () => setIsModalOpen(false),
+          deliveryPrice,
+          discountPrice
+        }
+      ),
       /* @__PURE__ */ jsxRuntimeExports.jsx(S$2.title, { children: "주문 확인" }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
         /* @__PURE__ */ jsxRuntimeExports.jsx(OrderPageMessage, { cartLength: checkedCartIds.length, totalQuantity }),
@@ -16293,8 +16322,25 @@ const useCartItems = () => {
 const getIdsFromCartItems = (cartItems) => {
   return cartItems.map(({ id: id2 }) => id2);
 };
+const LocalStorage = {
+  setJSON(key, JSONdata) {
+    localStorage.setItem(key, JSON.stringify(JSONdata));
+  },
+  getJSON(key) {
+    const data = localStorage.getItem(key);
+    if (data)
+      return JSON.parse(data);
+    return null;
+  }
+};
 const useCheckedCartIds = () => {
-  const [checkedCartIds, setCheckedCartIds] = reactExports.useState([]);
+  const CHECKED_CART_ID_STORAGE_KEY = "checkedCartIds";
+  const [checkedCartIds, setCheckedCartIds] = reactExports.useState(() => {
+    return LocalStorage.getJSON(CHECKED_CART_ID_STORAGE_KEY) ?? [];
+  });
+  reactExports.useEffect(() => {
+    LocalStorage.setJSON(CHECKED_CART_ID_STORAGE_KEY, checkedCartIds);
+  }, [checkedCartIds]);
   const addCheckedCartItem = (id2) => {
     setCheckedCartIds((prev2) => [...prev2, id2]);
   };
@@ -16304,11 +16350,23 @@ const useCheckedCartIds = () => {
   const initCheckedCartIds = reactExports.useCallback((cartItems) => {
     setCheckedCartIds(getIdsFromCartItems(cartItems));
   }, []);
+  const loadCheckedCartIdsFromStorage = reactExports.useCallback(
+    (cartItems) => {
+      const storedCartIds = LocalStorage.getJSON(CHECKED_CART_ID_STORAGE_KEY);
+      if (storedCartIds) {
+        setCheckedCartIds(storedCartIds);
+      } else {
+        initCheckedCartIds(cartItems);
+      }
+    },
+    [initCheckedCartIds]
+  );
   return {
     checkedCartIds,
     addCheckedCartItem,
     removeCheckedCartItem,
-    initCheckedCartIds
+    initCheckedCartIds,
+    loadCheckedCartIdsFromStorage
   };
 };
 const CartItemsProvider = ({ children }) => {
@@ -16316,15 +16374,15 @@ const CartItemsProvider = ({ children }) => {
   const cartItemsState = useCartItems();
   const checkedCartItemsState = useCheckedCartIds();
   const { cartItems } = cartItemsState;
-  const { initCheckedCartIds } = checkedCartItemsState;
+  const { loadCheckedCartIdsFromStorage } = checkedCartItemsState;
   reactExports.useEffect(() => {
     if (!isFirstLoading)
       return;
     if (cartItems.length !== 0) {
       setIsFirstLoading(false);
-      initCheckedCartIds(cartItems);
+      loadCheckedCartIdsFromStorage(cartItems);
     }
-  }, [cartItems, initCheckedCartIds, isFirstLoading]);
+  }, [cartItems, loadCheckedCartIdsFromStorage, isFirstLoading]);
   return /* @__PURE__ */ jsxRuntimeExports.jsx(
     CartItemsContext.Provider,
     {
