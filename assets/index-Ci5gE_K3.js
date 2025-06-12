@@ -15357,6 +15357,37 @@ const S$c = {
     font-weight: 700;
   `
 };
+const PriceSection = ({ orderPrice, discountPrice, deliveryPrice }) => {
+  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
+    /* @__PURE__ */ jsxRuntimeExports.jsxs(S$b.CalculationContainer, { children: [
+      /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "주문 금액", price: orderPrice, "data-testid": "orderPrice" }),
+      discountPrice !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "쿠폰 할인 금액", price: -discountPrice, "data-testid": "discountPrice" }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "배송비", price: deliveryPrice, "data-testid": "deliveryPrice" })
+    ] }),
+    /* @__PURE__ */ jsxRuntimeExports.jsx(
+      PriceRow,
+      {
+        title: "총 결제 금액",
+        price: orderPrice + deliveryPrice - (discountPrice ?? 0),
+        "data-testid": "totalPrice"
+      }
+    )
+  ] });
+};
+const S$b = {
+  CalculationContainer: newStyled.div`
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 12px 0px;
+    border-bottom: 2px solid #e6e6e6;
+    margin-bottom: 12px;
+  `
+};
+const DELIVERY_PRICE_THRESHOLD = 1e5;
+const DELIVERY_PRICE = 3e3;
+const DISTANCE_DELIVERY_PRICE = 3e3;
+const MAX_COUPON_AMOUNT = 2;
 const getOrderPrice = (cartItems, checkedCartIds = cartItems.map(({ id: id2 }) => id2)) => {
   let orderPrice = 0;
   cartItems.forEach((cartItem) => {
@@ -15388,12 +15419,8 @@ const getBogoDiscountPrice = (checkedItems, coupon) => {
   const minimumQuantity = (coupon.buyQuantity ?? 0) + (coupon.getQuantity ?? 0);
   if (minimumQuantity === 0)
     return 0;
-  const expensiveItem = checkedItems.filter(({ quantity }) => quantity >= minimumQuantity).reduce((acc, item) => item.product.price > acc.product.price ? item : acc, {
-    id: 0,
-    product: { id: 0, category: "", imageUrl: "", name: "", price: 0 },
-    quantity: 0
-  });
-  return expensiveItem.product.price;
+  const maxPrice = checkedItems.filter(({ quantity }) => quantity >= minimumQuantity).reduce((max, item) => Math.max(max, item.product.price), 0);
+  return maxPrice;
 };
 const applyCouponsToItems = (cartItems, deliveryPrice, coupons) => {
   const orderPrice = getOrderPrice(cartItems);
@@ -15500,45 +15527,26 @@ const getAvailableCoupons = (coupons, checkedCartItems, deliveryPrice) => {
     (coupon) => checkIsAvailableCoupon(coupon, checkedCartItems, deliveryPrice)
   );
 };
-const DELIVERY_PRICE_THRESHOLD = 1e5;
-const DELIVERY_PRICE = 3e3;
-const DISTANCE_DELIVERY_PRICE = 3e3;
-const MAX_COUPON_AMOUNT = 2;
-const PriceSection = ({ orderPrice, discountPrice, deliveryPrice }) => {
+const useCartPage = () => {
   const { cartItems, checkedCartIds } = useCartItemsContext();
-  if (!orderPrice)
-    orderPrice = getOrderPrice(cartItems, checkedCartIds);
-  if (!deliveryPrice)
-    deliveryPrice = orderPrice >= DELIVERY_PRICE_THRESHOLD || orderPrice === 0 ? 0 : DELIVERY_PRICE;
-  return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
-    /* @__PURE__ */ jsxRuntimeExports.jsxs(S$b.CalculationContainer, { children: [
-      /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "주문 금액", price: orderPrice, "data-testid": "orderPrice" }),
-      discountPrice !== void 0 && /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "쿠폰 할인 금액", price: -discountPrice, "data-testid": "discountPrice" }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(PriceRow, { title: "배송비", price: deliveryPrice, "data-testid": "deliveryPrice" })
-    ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      PriceRow,
-      {
-        title: "총 결제 금액",
-        price: orderPrice + deliveryPrice - (discountPrice ?? 0),
-        "data-testid": "totalPrice"
-      }
-    )
-  ] });
-};
-const S$b = {
-  CalculationContainer: newStyled.div`
-    display: flex;
-    flex-direction: column;
-    gap: 8px;
-    padding: 12px 0px;
-    border-bottom: 2px solid #e6e6e6;
-    margin-bottom: 12px;
-  `
+  const navigate = useNavigate();
+  const orderPrice = getOrderPrice(cartItems, checkedCartIds);
+  const deliveryPrice = orderPrice >= DELIVERY_PRICE_THRESHOLD || orderPrice === 0 ? 0 : DELIVERY_PRICE;
+  const handleBottomButton = () => navigate(BASE_URL + URL_LOCATION.ORDER, {
+    state: {
+      orderPrice,
+      deliveryPrice
+    }
+  });
+  return {
+    cartItems,
+    orderPrice,
+    deliveryPrice,
+    handleBottomButton
+  };
 };
 const CartPage = () => {
-  const { cartItems } = useCartItemsContext();
-  const navigate = useNavigate();
+  const { cartItems, orderPrice, deliveryPrice, handleBottomButton } = useCartPage();
   return /* @__PURE__ */ jsxRuntimeExports.jsxs(jsxRuntimeExports.Fragment, { children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$a.content, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(S$a.title, { children: "장바구니" }),
@@ -15562,10 +15570,10 @@ const CartPage = () => {
             "원 이상인 경우 무료 배송됩니다."
           ] })
         ] }),
-        /* @__PURE__ */ jsxRuntimeExports.jsx(PriceSection, {})
+        /* @__PURE__ */ jsxRuntimeExports.jsx(PriceSection, { orderPrice, deliveryPrice })
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(ConfirmButton, { title: "주문 확인", onClick: () => navigate(BASE_URL + URL_LOCATION.ORDER) })
+    /* @__PURE__ */ jsxRuntimeExports.jsx(ConfirmButton, { title: "주문 확인", onClick: handleBottomButton })
   ] });
 };
 const S$a = {
@@ -15840,15 +15848,9 @@ const useCouponContext = () => {
   }
   return context;
 };
-const useCouponActions = (id2, deliveryPrice) => {
-  const { cartItems, checkedCartIds } = useCartItemsContext();
-  const { coupons, checkedCouponIds, addCheckedCouponIds, removeCheckedCouponIds } = useCouponContext();
+const useCouponActions = (id2) => {
+  const { checkedCouponIds, addCheckedCouponIds, removeCheckedCouponIds } = useCouponContext();
   const { showToast } = useToastContext();
-  const isEnable = getAvailableCoupons(
-    coupons,
-    getCheckedItems(cartItems, checkedCartIds),
-    deliveryPrice
-  ).map((item) => item.id).includes(id2);
   const isChecked = checkedCouponIds.includes(id2);
   const handleCheckBoxClick = () => {
     if (isChecked) {
@@ -15862,19 +15864,18 @@ const useCouponActions = (id2, deliveryPrice) => {
     addCheckedCouponIds(id2);
   };
   return {
-    isEnable,
     isChecked,
     handleCheckBoxClick
   };
 };
-const CouponCard = ({ coupon, deliveryPrice }) => {
+const CouponCard = ({ coupon, isEnable }) => {
   const [year, month, day] = coupon.expirationDate.split("-").map(Number);
-  const { isChecked, isEnable, handleCheckBoxClick } = useCouponActions(coupon.id, deliveryPrice);
+  const { isChecked, handleCheckBoxClick } = useCouponActions(coupon.id);
   const { showToast } = useToastContext();
   return /* @__PURE__ */ jsxRuntimeExports.jsx(jsxRuntimeExports.Fragment, { children: isEnable ? /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.Container, { "data-testid": "coupon-card", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.TitleContainer, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(CheckBox, { checked: isChecked, onChange: handleCheckBoxClick }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: coupon.description })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(S$4.CouponDescription, { children: coupon.description })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.Content, { children: [
       coupon.expirationDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
@@ -15902,7 +15903,7 @@ const CouponCard = ({ coupon, deliveryPrice }) => {
   ] }) : /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.DisabledContainer, { "data-testid": "coupon-card", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.TitleContainer, { children: [
       /* @__PURE__ */ jsxRuntimeExports.jsx(CheckBox, { onChange: () => showToast("만료된 쿠폰입니다.") }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx("p", { children: coupon.description })
+      /* @__PURE__ */ jsxRuntimeExports.jsx(S$4.CouponDescription, { children: coupon.description })
     ] }),
     /* @__PURE__ */ jsxRuntimeExports.jsxs(S$4.Content, { children: [
       coupon.expirationDate && /* @__PURE__ */ jsxRuntimeExports.jsxs("p", { children: [
@@ -15938,6 +15939,8 @@ const S$4 = {
     display: flex;
     align-items: center;
     gap: 8px;
+  `,
+  CouponDescription: newStyled.p`
     font-size: 16px;
     font-weight: 700;
   `,
@@ -15956,6 +15959,7 @@ const S$4 = {
   `
 };
 const CouponModal = ({ isOpen, handleClose, deliveryPrice, discountPrice }) => {
+  const { cartItems, checkedCartIds } = useCartItemsContext();
   const { coupons } = useCouponContext();
   return isOpen && /* @__PURE__ */ jsxRuntimeExports.jsxs(S$3.container, { "data-testid": "modal", children: [
     /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.overlay, { "data-testid": "modal-overlay", onClick: handleClose }),
@@ -15970,7 +15974,14 @@ const CouponModal = ({ isOpen, handleClose, deliveryPrice, discountPrice }) => {
           "개까지 사용할 수 있습니다."
         ] })
       ] }),
-      /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.CouponContainer, { children: coupons.map((coupon) => /* @__PURE__ */ jsxRuntimeExports.jsx(CouponCard, { coupon, deliveryPrice }, coupon.id)) }),
+      /* @__PURE__ */ jsxRuntimeExports.jsx(S$3.CouponContainer, { children: coupons.map((coupon) => {
+        const isEnable = getAvailableCoupons(
+          coupons,
+          getCheckedItems(cartItems, checkedCartIds),
+          deliveryPrice
+        ).map((item) => item.id).includes(coupon.id);
+        return /* @__PURE__ */ jsxRuntimeExports.jsx(CouponCard, { coupon, isEnable }, coupon.id);
+      }) }),
       /* @__PURE__ */ jsxRuntimeExports.jsxs(S$3.closeButton, { onClick: handleClose, children: [
         "총 ",
         discountPrice.toLocaleString(),
@@ -16030,6 +16041,7 @@ const S$3 = {
     background: #333;
     color: white;
     font-weight: bold;
+    font-size: 16px;
     border: none;
     transition: 0.3s background;
 
@@ -16039,17 +16051,26 @@ const S$3 = {
   `
 };
 const useOrderPage = () => {
+  const navigate = useNavigate();
   const [deliveryChecked, setDeliveryChecked] = reactExports.useState(false);
   const { cartItems, checkedCartIds } = useCartItemsContext();
   const { coupons, checkedCouponIds, initCheckedCouponIds } = useCouponContext();
   const checkedCartItems = getCheckedItems(cartItems, checkedCartIds);
   const checkedCoupons = coupons.filter((coupon) => checkedCouponIds.includes(coupon.id));
-  const orderPrice = getOrderPrice(cartItems, checkedCartIds);
-  const deliveryPrice = (orderPrice >= DELIVERY_PRICE_THRESHOLD || orderPrice === 0 ? 0 : DELIVERY_PRICE) + (deliveryChecked ? DISTANCE_DELIVERY_PRICE : 0);
+  const { state } = useLocation();
+  const orderPrice = state.orderPrice;
+  const deliveryPrice = state.deliveryPrice + (deliveryChecked ? DISTANCE_DELIVERY_PRICE : 0);
   const discountPrice = Math.max(
     applyCouponsToItems(checkedCartItems, deliveryPrice, checkedCoupons),
     0
   );
+  const handleBottomButton = () => navigate(BASE_URL + URL_LOCATION.CONFIRM, {
+    state: {
+      cartItems,
+      checkedCartIds,
+      totalPrice: orderPrice + deliveryPrice - discountPrice
+    }
+  });
   reactExports.useEffect(() => {
     initCheckedCouponIds(
       getAvailableCoupons(coupons, checkedCartItems, deliveryPrice),
@@ -16059,12 +16080,25 @@ const useOrderPage = () => {
     );
   }, [deliveryPrice]);
   const handleClickDeliveryCheckbox = () => setDeliveryChecked((prev2) => !prev2);
-  return { deliveryChecked, handleClickDeliveryCheckbox, orderPrice, deliveryPrice, discountPrice };
+  return {
+    deliveryChecked,
+    handleClickDeliveryCheckbox,
+    orderPrice,
+    deliveryPrice,
+    discountPrice,
+    handleBottomButton
+  };
 };
 const OrderPage = () => {
-  const navigate = useNavigate();
   const { cartItems, checkedCartIds } = useCartItemsContext();
-  const { deliveryChecked, handleClickDeliveryCheckbox, orderPrice, deliveryPrice, discountPrice } = useOrderPage();
+  const {
+    deliveryChecked,
+    handleClickDeliveryCheckbox,
+    orderPrice,
+    deliveryPrice,
+    discountPrice,
+    handleBottomButton
+  } = useOrderPage();
   const checkedSet = new Set(checkedCartIds);
   const totalQuantity = cartItems.reduce(
     (acc, item) => checkedSet.has(item.id) ? acc + item.quantity : acc,
@@ -16112,19 +16146,7 @@ const OrderPage = () => {
         )
       ] })
     ] }),
-    /* @__PURE__ */ jsxRuntimeExports.jsx(
-      BottomButton,
-      {
-        title: "결제하기",
-        onClick: () => navigate(BASE_URL + URL_LOCATION.CONFIRM, {
-          state: {
-            cartItems,
-            checkedCartIds,
-            totalPrice: orderPrice + deliveryPrice - discountPrice
-          }
-        })
-      }
-    )
+    /* @__PURE__ */ jsxRuntimeExports.jsx(BottomButton, { title: "결제하기", onClick: handleBottomButton })
   ] });
 };
 const S$2 = {
@@ -16327,10 +16349,14 @@ const LocalStorage = {
     localStorage.setItem(key, JSON.stringify(JSONdata));
   },
   getJSON(key) {
-    const data = localStorage.getItem(key);
-    if (data)
-      return JSON.parse(data);
-    return null;
+    try {
+      const data = localStorage.getItem(key);
+      if (data)
+        return JSON.parse(data);
+      return null;
+    } catch {
+      throw new Error("로컬 스토리지에서 정보를 가져오는 과정에 오류가 발생했습니다.");
+    }
   }
 };
 const useCheckedCartIds = () => {
